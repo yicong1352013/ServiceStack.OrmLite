@@ -124,11 +124,49 @@ namespace ServiceStack.OrmLite
             return this;
         }
 
+        public virtual SqlExpression<T> Select<Table1, Table2>(Expression<Func<Table1, Table2, object>> fields)
+        {
+            sep = string.Empty;
+            useFieldName = true;
+            BuildSelectExpression(Visit(fields).ToString(), false);
+            return this;
+        }
+
+        public virtual SqlExpression<T> Select<Table1, Table2, Table3>(Expression<Func<Table1, Table2, Table3, object>> fields)
+        {
+            sep = string.Empty;
+            useFieldName = true;
+            BuildSelectExpression(Visit(fields).ToString(), false);
+            return this;
+        }
+
         public virtual SqlExpression<T> SelectDistinct<TKey>(Expression<Func<T, TKey>> fields)
         {
             sep = string.Empty;
             useFieldName = true;
             BuildSelectExpression(Visit(fields).ToString(), true);
+            return this;
+        }
+
+        public virtual SqlExpression<T> SelectDistinct<Table1, Table2>(Expression<Func<Table1, Table2, object>> fields)
+        {
+            sep = string.Empty;
+            useFieldName = true;
+            BuildSelectExpression(Visit(fields).ToString(), true);
+            return this;
+        }
+
+        public virtual SqlExpression<T> SelectDistinct<Table1, Table2, Table3>(Expression<Func<Table1, Table2, Table3, object>> fields)
+        {
+            sep = string.Empty;
+            useFieldName = true;
+            BuildSelectExpression(Visit(fields).ToString(), true);
+            return this;
+        }
+
+        public virtual SqlExpression<T> SelectDistinct()
+        {
+            selectDistinct = true;
             return this;
         }
 
@@ -706,7 +744,9 @@ namespace ServiceStack.OrmLite
                 if (updateFields.Count > 0 && !updateFields.Contains(fieldDef.Name)) continue; // added
 
                 var value = fieldDef.GetValue(item);
-                if (excludeDefaults && (value == null || value.Equals(value.GetType().GetDefaultValue()))) continue; //GetDefaultValue?
+                if (excludeDefaults
+                    && (value == null || (!fieldDef.IsNullable && value.Equals(value.GetType().GetDefaultValue()))))
+                    continue;
 
                 fieldDef.GetQuotedValue(item, DialectProvider);
 
@@ -718,6 +758,9 @@ namespace ServiceStack.OrmLite
                     .Append("=")
                     .Append(DialectProvider.GetQuotedValue(value, fieldDef.FieldType));
             }
+
+            if (setFields.Length == 0)
+                throw new ArgumentException("No non-null or non-default values were provided for type: " + typeof(T).Name);
 
             return string.Format("UPDATE {0} SET {1} {2}",
                 DialectProvider.GetQuotedTableName(modelDef), setFields, WhereExpression);
@@ -1271,10 +1314,16 @@ namespace ServiceStack.OrmLite
         protected bool IsFieldName(object quotedExp)
         {
             var fieldExpr = quotedExp.ToString().StripTablePrefixes();
-            var fieldNames = modelDef.FieldDefinitions.Map(x =>
-                DialectProvider.GetQuotedColumnName(x.FieldName));
+            var unquotedExpr = fieldExpr.StripQuotes();
 
-            return fieldNames.Any(x => x == fieldExpr);
+            var isTableField = modelDef.FieldDefinitionsArray.Any(x => x.FieldName == unquotedExpr);
+            if (isTableField)
+                return true;
+
+            var isJoinedField = tableDefs.Any(t => t.FieldDefinitionsArray
+                .Any(x => x.FieldName == unquotedExpr));
+
+            return isJoinedField;
         }
 
         protected object GetTrueExpression()

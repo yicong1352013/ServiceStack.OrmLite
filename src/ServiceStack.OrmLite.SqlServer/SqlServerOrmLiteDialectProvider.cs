@@ -470,7 +470,7 @@ namespace ServiceStack.OrmLite.SqlServer
 
         protected SqlCommand Unwrap(IDbCommand cmd)
         {
-            return (SqlCommand) cmd.ToDbCommand();
+            return (SqlCommand)cmd.ToDbCommand();
         }
 
         protected SqlDataReader Unwrap(IDataReader reader)
